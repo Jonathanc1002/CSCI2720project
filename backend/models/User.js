@@ -456,7 +456,7 @@ async function main (){
 
     }catch(err){
         
-        console.error("fail", err);
+        console.error("failure", err);
     }finally{
         await mongoose.connection.close();
     }
