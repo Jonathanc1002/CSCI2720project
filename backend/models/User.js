@@ -46,7 +46,7 @@ const VenueSchema = new mongoose.Schema({
         required: [true, "Longitude is required"],
     },
     area: {
-        type: Number
+        type: String
     }
 });
 
@@ -206,7 +206,8 @@ async function loadComment(venueID) {
                             venue_id: result.venue_id,
                             name: result.name,
                             latitude: result.latitude,
-                            longitude: result.longitude
+                            longitude: result.longitude,
+                            area: result.area
                         }
                     }));
 
@@ -235,7 +236,8 @@ function getVenueInfo(venueObjectId) {
                 venue_id: result.venue_id,
                 name: result.name,
                 latitude: result.latitude,
-                longitude: result.longitude
+                longitude: result.longitude,
+                area: result.area
             };
 
             return venueInfo;
@@ -285,6 +287,7 @@ function loadVenueForUser(userID) {
                                     name: v.name,
                                     latitude: v.latitude,
                                     longitude: v.longitude,
+                                    area: v.area,
                                     is_favorited: isFavorited,
                                     total_events: totalEvents
                                 };
@@ -317,7 +320,8 @@ async function insertVenue(adminID, venueData) {
                 venue_id: venueData.venue_id,
                 name: venueData.name,
                 latitude: venueData.latitude,
-                longitude: venueData.longitude
+                longitude: venueData.longitude,
+                area: venueData.area
             })
                 .save()
                 .then((venueInsert) => {
@@ -413,7 +417,8 @@ async function loadEventForAdmin(adminID) {
                                         venue_id: v.venue_id,
                                         name: v.name,
                                         latitude: v.latitude,
-                                        longitude: v.longitude
+                                        longitude: v.longitude,
+                                        area: v.area
                                     }
                                 ])
                             );
