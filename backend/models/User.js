@@ -19,10 +19,11 @@ const UserSchema = new mongoose.Schema({
         default: false,
         required: [true, "Admin status is required"]
     },
-    favoriteLocations: {
-        type: [String],
-        required: [true, "Favorites is required"]
-    }
+    favoriteLocations: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'VenueEvent',
+        required: true
+    }]
 });
 
 const UserEvent = mongoose.model("UserEvent", UserSchema);
@@ -53,9 +54,10 @@ const VenueSchema = new mongoose.Schema({
 const VenueEvent = mongoose.model("VenueEvent", VenueSchema);
 
 const CommentSchema = mongoose.Schema({
-    user_id: {
-        type: String,
-        required: [true, "User ID is required"]
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'UserEvent',
+        required: [true, "User is required"]
     },
     comment: {
         type: String,
@@ -103,7 +105,7 @@ const DetailSchema = new mongoose.Schema({
         required: [true, "Presenter is required"]
     },
     date: {
-        type: [String],
+        type: [Date],
         required: [true, "Date is required"]
     },
 });
@@ -129,7 +131,7 @@ async function insertComment(userID, commentData) {
                     }
 
                     return new CommentEvent({
-                        user_id: String(user._id),
+                        user: user._id,
                         comment: commentData.comment,
                         venue: exist._id,
                         date: new Date()
@@ -185,34 +187,43 @@ async function loadComment(venueID) {
             }
 
             return CommentEvent.find({ venue: result._id }).lean()
-                .then(async data => {
+                .then(data => {
                     console.log("Successfully fetched comments");
 
-                    const userIdSet = new Set(data.map(c => c.user_id));
+                    const userIdSet = new Set(
+                        data
+                            .filter(c => c.user)
+                            .map(c => String(c.user))
+                    );
                     const userIds = Array.from(userIdSet);
 
-                    const users = await UserEvent.find({ _id: { $in: userIds } }).lean();
-                    const userMap = new Map(
-                        users.map(u => [String(u._id), u.username])
-                    );
+                    return UserEvent.find(
+                        { _id: { $in: userIds } },
+                        { username: 1 }
+                    ).lean()
+                        .then(users => {
+                            const userMap = new Map(
+                                users.map(u => [String(u._id), u.username])
+                            );
 
-                    const nested = data.map(c => ({
-                        _id: c._id,
-                        user_id: c.user_id,
-                        username: userMap.get(String(c.user_id)) || null,
-                        comment: c.comment,
-                        date: c.date,
-                        venue: {
-                            venue_id: result.venue_id,
-                            name: result.name,
-                            latitude: result.latitude,
-                            longitude: result.longitude,
-                            area: result.area
-                        }
-                    }));
+                            const nested = data.map(c => ({
+                                _id: c._id,
+                                user_id: c.user || null,
+                                username: userMap.get(String(c.user)) || null,
+                                comment: c.comment,
+                                date: c.date,
+                                venue: {
+                                    venue_id: result.venue_id,
+                                    name: result.name,
+                                    latitude: result.latitude,
+                                    longitude: result.longitude,
+                                    area: result.area
+                                }
+                            }));
 
-                    console.log(nested)
-                    return [true, nested];
+                            console.log(nested);
+                            return [true, nested];
+                        });
                 });
         })
         .catch(err => {
@@ -220,6 +231,7 @@ async function loadComment(venueID) {
             return [false, err.message];
         });
 }
+
 
 // User-venue events
 
@@ -249,22 +261,21 @@ function getVenueInfo(venueObjectId) {
 }
 
 
-function loadVenueForUser(userID) {
+async function loadVenueForUser(userID) {
 
     return UserEvent.findOne({ _id: userID }).lean()
         .then(userResult => {
             if (!userResult) {
                 console.log("Fail to fetch user info when loading favorites.");
-                return [false, "noadmin"];
+                return [false, "nofind"];
             }
 
-            const favorites = userResult.favoriteLocations || [];
+            const favorites = (userResult.favoriteLocations || []).map(id => id.toString());
 
             return DetailEvent.find({}).lean()
                 .then(events => {
 
                     const venueCountMap = new Map();
-
                     events.forEach(ev => {
                         const vId = String(ev.venue);
                         venueCountMap.set(vId, (venueCountMap.get(vId) || 0) + 1);
@@ -280,7 +291,7 @@ function loadVenueForUser(userID) {
                             const venueArray = venues.map(v => {
                                 const vId = String(v._id);
                                 const totalEvents = venueCountMap.get(vId) || 0;
-                                const isFavorited = favorites.includes(v.venue_id);
+                                const isFavorited = favorites.includes(vId);
 
                                 return {
                                     venue_id: v.venue_id,
@@ -307,6 +318,7 @@ function loadVenueForUser(userID) {
             return [false, err.message];
         });
 }
+
 
 async function insertVenue(adminID, venueData) {
 
@@ -338,47 +350,33 @@ async function insertVenue(adminID, venueData) {
 
 async function favoriteLocation(userID, venueID, willFavorite) {
 
-    return UserEvent.findOne({ _id: userID }).lean()
-        .then(result => {
-            if (!result) {
-                console.log("Fail to fetch username in favoriting");
+    return VenueEvent.findOne({ venue_id: venueID }).lean()
+        .then(exist => {
+            if (!exist) {
+                console.log("Failed to find venue ID when favoriting event");
                 return [false, "nofind"];
             }
 
-            return VenueEvent.findOne({ venue_id: venueID }).lean()
-                .then((exist) => {
-                    if (!exist) {
-                        console.log("Failed to find venue ID when favoriting event");
-                        return [false, "nofind"];
-                    }
+            let update;
+            if (willFavorite) {
+                update = { $addToSet: { favoriteLocations: exist._id } };
+            } else {
+                update = { $pull: { favoriteLocations: exist._id } };
+            }
 
-                    let favoriteArray = [...(result.favoriteLocations || [])];
-
-                    if (willFavorite && !favoriteArray.includes(exist.venue_id)) {
-                        favoriteArray.push(exist.venue_id);
-
-                    } else if (!willFavorite && favoriteArray.includes(exist.venue_id)) {
-                        favoriteArray = favoriteArray.filter(id => id !== exist.venue_id);
-
+            return UserEvent.findOneAndUpdate(
+                { _id: userID },
+                update,
+                { new: true }
+            ).lean()
+                .then(change => {
+                    if (change) {
+                        console.log("Location favorites updated successfully!");
+                        console.log(change);
+                        return [true, change];
                     } else {
-                        console.log("No change needed - already in desired state");
-                        return [true, ""];
+                        return [false, "noupdate"];
                     }
-
-                    return UserEvent.findOneAndUpdate(
-                        { _id: userID },
-                        { $set: { favoriteLocations: favoriteArray } },
-                        { new: true }
-                    ).lean()
-                        .then(change => {
-                            if (change) {
-                                console.log("Location favorites updated successfully!");
-                                console.log(change);
-                                return [true, change];
-                            } else {
-                                return [false, "noupdate"];
-                            }
-                        });
                 });
         })
         .catch(err => {
@@ -387,7 +385,35 @@ async function favoriteLocation(userID, venueID, willFavorite) {
         });
 }
 
+
 // Admin-event functions
+
+function parseDate(xmlDate) {
+
+    if (typeof xmlDate !== 'string' || xmlDate.length !== 8) return null;
+
+    const year = Number(xmlDate.slice(0, 4));
+    const month = Number(xmlDate.slice(4, 6)) - 1;
+    const day = Number(xmlDate.slice(6, 8));
+
+    if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+        return null;
+    }
+
+    return new Date(Date.UTC(year, month, day));
+}
+
+function formatDate(formattedDate) {
+
+    const d = new Date(formattedDate);
+    if (Number.isNaN(d.getTime())) return null;
+
+    const year = d.getUTCFullYear();
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+
+    return `${year}${month}${day}`;
+}
 
 async function loadEventForAdmin(adminID) {
 
@@ -433,7 +459,7 @@ async function loadEventForAdmin(adminID) {
                                     venue: vInfo,
                                     price: ev.price,
                                     presenter: ev.presenter,
-                                    date: ev.date
+                                    dates_compact: (ev.date || []).map(formatDate)
                                 };
                             });
 
@@ -463,6 +489,10 @@ async function insertEvent(adminID, eventData) {
                         return [false, "nofind"];
                     }
 
+                    const parsedDates = (eventData.date || [])
+                        .map(parseDate)
+                        .filter(d => d !== null);
+
                     return new DetailEvent({
                         event_id: eventData.event_id,
                         title: eventData.title,
@@ -470,7 +500,7 @@ async function insertEvent(adminID, eventData) {
                         venue: exist._id,
                         price: eventData.price,
                         presenter: eventData.presenter,
-                        date: eventData.date
+                        date: parsedDates
                     })
                         .save()
                         .then((eventInsert) => {
@@ -485,6 +515,7 @@ async function insertEvent(adminID, eventData) {
             return [false, err.message];
         });
 }
+
 
 async function deleteEvent(adminID, eventID) {
 
@@ -526,7 +557,11 @@ async function updateEvent(adminID, eventID, eventDataNew) {
             if (eventDataNew.description !== undefined) updateFields.description = eventDataNew.description;
             if (eventDataNew.price !== undefined) updateFields.price = eventDataNew.price;
             if (eventDataNew.presenter !== undefined) updateFields.presenter = eventDataNew.presenter;
-            if (eventDataNew.date !== undefined) updateFields.date = eventDataNew.date;
+            if (eventDataNew.date !== undefined) {
+                updateFields.date = (eventDataNew.date || [])
+                    .map(parseDate)
+                    .filter(d => d !== null);
+            }
 
             if (!eventDataNew.venue || eventDataNew.venue.venue_id === undefined) {
                 return DetailEvent.findOneAndUpdate(
@@ -573,6 +608,7 @@ async function updateEvent(adminID, eventID, eventDataNew) {
             return [false, err.message];
         });
 }
+
 
 // User authentication functions:
 
