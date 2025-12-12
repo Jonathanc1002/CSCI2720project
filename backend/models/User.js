@@ -1,11 +1,11 @@
 const mongoose = require('mongoose');
 
 async function connectDatabase(){
-    await mongoose.connect('mongodb://127.0.0.1:27017/webdevproj')
+    await mongoose.connect('mongodb://127.0.0.1:27017/sample')
 }
 
 // Schema and models
-const UserSchema = mongoose.Schema({
+const UserSchema = new mongoose.Schema({
     username: {
       type: String,
       required: [true, "Name is required"]
@@ -25,6 +25,21 @@ const UserSchema = mongoose.Schema({
 
 const UserEvent = mongoose.model("UserEvent", UserSchema);
 
+const VenueSchema = new mongoose.Schema({
+    venue_id: {
+        type: Number,
+        required: true,
+        unique: true
+    },
+    name: {
+        type: String,
+        required: true
+    }
+});
+
+const Venue = mongoose.model('Venue', VenueSchema);
+
+
 const CommentSchema = mongoose.Schema({
     username: {
       type: String,
@@ -35,8 +50,9 @@ const CommentSchema = mongoose.Schema({
       required: [true, "Comment is required"]
     },
     venue: {
-      type: String,
-      required: [true, "Venue is required"]
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Venue',
+        required: true
     },
     date: {
       type: Date,
@@ -46,7 +62,7 @@ const CommentSchema = mongoose.Schema({
 
 const CommentEvent = mongoose.model("CommentEvent", CommentSchema);
 
-const DetailSchema = mongoose.Schema({
+const DetailSchema = new mongoose.Schema({
     event_id: {
         type: String,
         required: [true, "Event ID is required"] // Note: this is different from ObjectID(), this is the ID provided in the dataset
@@ -60,16 +76,13 @@ const DetailSchema = mongoose.Schema({
       default: "N/A"
     },
     venue: {
-      type: String,
-      required: [true, "Venue is required"]
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Venue',
+        required: true
     },
     price: {
       type: String,
       required: [true, "Price is required"]
-    },
-    quota: {
-        type: Number,
-        required: [true, "Quota is required"]
     },
     presenter: {
       type: String,
@@ -82,7 +95,6 @@ const DetailSchema = mongoose.Schema({
 });
 
 const DetailEvent = mongoose.model("DetailEvent", DetailSchema);
-
 
 // Helper functions for commenting
 // NOTE: Function params other than isUsernameAdmin and venue must be in JSON format 
