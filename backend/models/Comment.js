@@ -1,10 +1,14 @@
 const mongoose = require("mongoose");
 
 const CommentSchema = new mongoose.Schema({
-  user_id: { type: String, required: true }, // TODO: ObjectId ref User
+  user_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "UserEvent",
+    required: true
+  },
   venue: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Venue",
+    ref: "VenueEvent",
     required: true
   },
   comment: { type: String, required: true },
