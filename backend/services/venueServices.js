@@ -1,83 +1,40 @@
 const Venue = require('../models/Venue');
-const Event = require('../models/Event');
-const User = require('../models/User');
-
-const fetchXML = require('../preprocess/fetch/fetchXML');
-const parseXML = require('../preprocess/fetch/xmlParser');
-const parseVenues = require('../preprocess/parseVenues');
-const { filterVenues } = require('../preprocess/parseVenues');
-const parseEventDates = require('../preprocess/parseEventDates');
-const parseEvents = require('../preprocess/parseEvents');
-
-const VENUES_URL = "https://www.lcsd.gov.hk/datagovhk/event/venues.xml";
-const EVENTS_URL = "https://www.lcsd.gov.hk/datagovhk/event/events.xml";
-const EVENT_DATES_URL = "https://www.lcsd.gov.hk/datagovhk/event/eventDates.xml";
+const userServices = require('./userServices');
 
 /**
- * Retrieve venue information by MongoDB ObjectId. Returns venue metadata (venue_id, name, location, area).
+ * Sample reference points for distance calculation
  */
-function getVenueInfo(venueObjectId) {
+const CUHK_LAT = 22.4172;
+const CUHK_LNG = 114.2079;
+
+/**
+ * Load venue based on ._id
+ */
+function loadVenue(venueObjectId) {
   return Venue.findOne({ _id: venueObjectId }).lean()
-    .then(result => {
-      if (!result) return null;
-      return {
-        venue_id: result.venue_id,
-        name: result.name,
-        latitude: result.latitude,
-        longitude: result.longitude,
-        area: result.area
+    .then(venue => {
+      if (!venue) return [false, 'nofind'];
+
+      const result = {
+        _id: venue._id,
+        venue_id: venue.venue_id,
+        name: venue.name,
+        latitude: venue.latitude,
+        longitude: venue.longitude,
+        area: venue.area,
+        eventsCount: venue.eventCount ?? 0
       };
-    })
-    .catch(() => null);
-}
 
-/**
- * Load all venues with user-specific enrichment. Fetches user's favorite locations, returns all venues with
- * is_favorited flag and eventCount. Used to display venue list in frontend with favorite status.
- */
-function loadVenueForUser(userID) {
-  return User.findOne({ _id: userID }).lean()
-    .then(userDoc => {
-      if (!userDoc) return [false, 'nofind'];
-
-      // User's favorites are now venue_id strings, not ObjectIds
-      const favorites = userDoc.favoriteLocations || [];
-
-      return Venue.find({}).lean()
-        .then(venues => {
-          if (!venues || venues.length === 0) return [true, []];
-
-          const venueArray = venues.map(v => {
-            // Compare by venue_id string instead of _id to survive refreshes
-            const isFavorited = favorites.includes(v.venue_id);
-            const count =
-              v.eventCount !== undefined && v.eventCount !== null
-                ? v.eventCount
-                : 0;
-
-            return {
-              venue_id: v.venue_id,
-              name: v.name,
-              latitude: v.latitude,
-              longitude: v.longitude,
-              area: v.area,
-              eventCount: count,
-              is_favorited: isFavorited
-            };
-          });
-
-          return [true, venueArray];
-        });
+      return [true, result];
     })
     .catch(err => [false, err.message]);
 }
 
 /**
- * Create a new venue. Requires admin privileges. Initializes eventCount to 0 for new venue.
- * Accepts venueData from parseVenues function output.
+ * Creates a new venue, needs admin privileges
  */
-function insertVenue(adminID, venueData, checkAdminFn) {
-  return (checkAdminFn ? checkAdminFn(adminID) : Promise.resolve(false))
+function insertVenue(adminID, venueData) {
+  return userServices.checkWhetherUserIsAdmin(adminID)
     .then(isAdmin => {
       if (!isAdmin) return [false, 'noadmin'];
 
@@ -98,100 +55,84 @@ function insertVenue(adminID, venueData, checkAdminFn) {
 }
 
 /**
- * Load filtered venues with events. Fetches XML data, filters venues by area/keyword/distance during parsing,
- * selects top 10 filtered venues, fetches events for each venue, and inserts both venues and events into DB.
- * Requires at least 3 events per venue; venues with fewer events are excluded.
- * Returns [success, result] tuple with inserted counts or error message.
- *
- * @param {Object} filterOptions - Filter criteria { area?, keyword?, latitude?, longitude?, radiusKm? }
- * @returns {Promise<[boolean, Object|string]>} [success, { venuesInserted, eventsInserted } | error]
+ * If no filter is applied, will load all venue
  */
-function loadFilteredVenuesWithEvents(filterOptions = {}) {
-  return fetchXML(VENUES_URL)
-    .then(venuesXML => parseXML(venuesXML))
-    .then(venuesParsed => parseVenues(venuesParsed))
-    .then(async allVenues => {
-      // 2. Apply filters to venues
-      const filteredVenues = filterVenues(allVenues, filterOptions);
-      if (filteredVenues.length === 0) {
-        return [false, 'novenue'];
+function loadFilteredVenuesFromDB(filterOptions = {}) {
+  return Venue.find({}).lean()
+    .then(allVenues => {
+      if (allVenues.length === 0) {
+        return [true, []];
       }
 
-      // 3. Fetch and parse events and event dates
-      const datesXML = await fetchXML(EVENT_DATES_URL);
-      const datesParsed = await parseXML(datesXML);
-      const dateMap = parseEventDates(datesParsed);
+      let filteredVenues = allVenues;
 
-      const eventsXML = await fetchXML(EVENTS_URL);
-      const eventsParsed = await parseXML(eventsXML);
-      const rawEvents = parseEvents(eventsParsed, dateMap);
+      // 1. Area filter
+      if (filterOptions.area) {
+        filteredVenues = filteredVenues.filter(v => v.area === filterOptions.area);
+      }
 
-      // 4. Create a map of venue_id to events
-      const venueEventsMap = {};
-      rawEvents.forEach(e => {
-        if (!venueEventsMap[e.venue_id]) {
-          venueEventsMap[e.venue_id] = [];
+      // 2. Keyword search
+      if (filterOptions.keyword) {
+        const keyword = filterOptions.keyword.toLowerCase();
+        filteredVenues = filteredVenues.filter(v =>
+          v.name.toLowerCase().includes(keyword)
+        );
+      }
+
+      // 3. Distance filter 
+      if (filterOptions.distance !== undefined) {
+        if (filterOptions.distance === 0) {
+          // Approach 1: show all venues, distance filter is rejected
+          // Approach 2: don't show anything -> filteredVenues = [];
+        } else {
+          const distanceFilter = getDistanceBounds(CUHK_LAT, CUHK_LNG, filterOptions.distance);
+          filteredVenues = filteredVenues.filter(v =>
+            distanceFilter.haversineDistance(parseFloat(v.latitude), parseFloat(v.longitude)) <= distanceFilter.radiusKm
+          );
         }
-        venueEventsMap[e.venue_id].push(e);
-      });
-
-      // 5. Filter venues that have at least 3 events, then take top 10
-      const venuesWithEnoughEvents = filteredVenues
-        .filter(v => venueEventsMap[v.venue_id] && venueEventsMap[v.venue_id].length >= 3)
-        .slice(0, 10);
-
-      if (venuesWithEnoughEvents.length === 0) {
-        return [false, 'novenue'];
       }
 
-      // 6. Prepare venue documents and insert into DB
-      const venueDocsToInsert = venuesWithEnoughEvents.map(v => ({
-        venue_id: v.venue_id,
+      const result = filteredVenues.map(v => ({
+        _id: v._id,
         name: v.name,
         latitude: v.latitude,
         longitude: v.longitude,
         area: v.area,
-        eventCount: venueEventsMap[v.venue_id].length
+        eventsCount: v.eventCount || 0
       }));
 
-      // 7. Clear existing venues and insert new ones (or upsert)
-      await Venue.deleteMany({});
-      const venueDocs = await Venue.insertMany(venueDocsToInsert);
-
-      // 8. Create venue ID map for event insertion
-      const venueMap = {};
-      venueDocs.forEach(v => {
-        venueMap[v.venue_id] = v._id;
-      });
-
-      // 9. Prepare and insert events
-      const eventsToInsert = [];
-      venuesWithEnoughEvents.forEach(v => {
-        (venueEventsMap[v.venue_id] || []).forEach(e => {
-          eventsToInsert.push({
-            event_id: e.event_id,
-            title: e.title,
-            description: e.description,
-            presenter: e.presenter,
-            venue: venueMap[v.venue_id],
-            dates: e.dates
-          });
-        });
-      });
-
-      await Event.deleteMany({});
-      await Event.insertMany(eventsToInsert);
-
-      return [
-        true,
-        {
-          venuesInserted: venueDocs.length,
-          eventsInserted: eventsToInsert.length,
-          message: `Loaded ${venueDocs.length} venues with ${eventsToInsert.length} events`
-        }
-      ];
+      return [true, result];
     })
     .catch(err => [false, err.message]);
 }
 
-module.exports = { getVenueInfo, loadVenueForUser, insertVenue, loadFilteredVenuesWithEvents };
+/**
+ * Get distance filter object (circle bounds only)
+ */
+function getDistanceBounds(centerLat, centerLng, distanceKm) {
+  const R = 6371;
+
+  return {
+    centerLat,
+    centerLng,
+    radiusKm: distanceKm,
+    // Haversine distance calculator (closure)
+    haversineDistance: (testLat, testLng) => {
+      const dLat = (testLat - centerLat) * Math.PI / 180;
+      const dLon = (testLng - centerLng) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(centerLat * Math.PI / 180) * Math.cos(testLat * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+  };
+}
+
+module.exports = {
+  loadVenue,
+  insertVenue,
+  loadFilteredVenuesFromDB,
+  getDistanceBounds,
+};
+

@@ -1,22 +1,26 @@
-function resolveArea(lat, lng) {
-  if (lat == null || lng == null) return "Unknown";
+/**
+ * Area mapping by venue name for TOP 30 busiest venues as of 5.45AM HKT 12/14/2025
+ */
 
-  lat = Number(lat);
-  lng = Number(lng);
+function resolveArea(venueName) {
+  if (!venueName || typeof venueName !== 'string') return "Others";
+  
+  const name = venueName.toLowerCase().trim();
 
-  if (lat < 22.15 || lat > 22.6 || lng < 113.8 || lng > 114.4) {
-    return "Unknown";
-  }
+  // Exact venue name matching for TOP 30
+  if (name.includes("sha tin")) return "Sha Tin";
+  if (name.includes("yuen long")) return "Yuen Long";
+  if (name.includes("tuen mun")) return "Tuen Mun";
+  if (name.includes("north district")) return "North District";
+  if (name.includes("tai po")) return "Tai Po";
+  if (name.includes("ko shan theatre")) return "Hung Hom";
+  if (name.includes("ngau chi wan")) return "Ngau Chi Wan";
+  if (name.includes("hong kong cultural centre")) return "Tsim Sha Tsui";
+  if (name.includes("hong kong city hall")) return "Central";
+  if (name.includes("hong kong film archive")) return "Sai Wan Ho";
 
-  if (lat < 22.28 && lng > 114.1) {
-    return "Hong Kong Island";
-  }
-
-  if (lat >= 22.26 && lat <= 22.36 && lng >= 114.14 && lng <= 114.23) {
-    return "Kowloon";
-  }
-
-  return "New Territories";
+  // Fallback
+  return "Others";
 }
 
 module.exports = resolveArea;
