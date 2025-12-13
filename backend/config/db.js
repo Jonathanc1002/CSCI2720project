@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 
 function connectDatabase(uri) {
-  const mongoUri = uri || process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/sample';
+  const mongoUri = uri || process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/csci2720';
   return mongoose
     .connect(mongoUri)
     .then(() => {
