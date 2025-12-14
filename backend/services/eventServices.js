@@ -1,202 +1,138 @@
 const Event = require('../models/Event');
 const Venue = require('../models/Venue');
-const userServices = require('./userServices');
 
 /**
- * Parse YYYYMMDD date string to JavaScript Date object. Validates format and date range.
- * Returns null if input is invalid.
+ * Loads events
  */
-function parseDate(xmlDate) {
-  if (typeof xmlDate !== 'string' || xmlDate.length !== 8) return null;
+function loadEventForAdmin() {
+  return Event.find({}).lean()
+    .then(events => {
+      if (!events || events.length === 0) return [true, []];
 
-  const year = Number(xmlDate.slice(0, 4));
-  const month = Number(xmlDate.slice(4, 6)) - 1;
-  const day = Number(xmlDate.slice(6, 8));
+      const nestedEvents = events.map(ev => ({
+        _id: ev._id,
+        event_id: ev.event_id,
+        title: ev.title,
+        description: ev.description,
+        presenter: ev.presenter,
+        venue: ev.venue,
+        dates: ev.dates || []
+      }));
 
-  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
+      return [true, nestedEvents];
+    })
+    .catch(err => {
+      console.error(err);
+      return [false, 'Error getting event'];
+    });
+}
 
-  return new Date(Date.UTC(year, month, day));
+
+/**
+ * Create a new event. Validates venue existence, accepts dates as ISO strings.
+ */
+/**
+ * Clean event response - _id first, no __v
+ */
+function cleanEventResponse(eventDoc) {
+  const clean = eventDoc.toObject({ versionKey: false });
+  const { _id, ...rest } = clean;
+  return { _id, ...rest };
 }
 
 /**
- * Convert JavaScript Date object to YYYYMMDD string format. Used for formatting dates in responses.
- * Returns null if input date is invalid.
+ * Create a new event. Validates venue existence, accepts dates as ISO strings.
  */
-function formatDate(formattedDate) {
-  const d = new Date(formattedDate);
-  if (Number.isNaN(d.getTime())) return null;
+function insertEvent(eventData) {
+  return Venue.findOne({ _id: eventData.venue }).lean()
+    .then(exist => {
+      if (!exist) return [false, 'Cannot find venue.'];
 
-  const year = d.getUTCFullYear();
-  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-
-  return `${year}${month}${day}`;
+      return new Event({
+        event_id: eventData.event_id,
+        title: eventData.title,
+        description: eventData.description,
+        presenter: eventData.presenter,
+        venue: exist._id,
+        dates: eventData.dates || []
+      }).save()
+        .then(eventInsert => [true, cleanEventResponse(eventInsert)]);
+    })
+    .catch(err => {
+      console.error(err);
+      return [false, 'Error inserting event'];
+    });
 }
 
 /**
- * Retrieve all events for admin user with nested venue information. Requires admin privileges.
- * Joins Event and Venue collections; returns events with full venue metadata for administrative viewing.
+ * Update event fields (event_id, title, description, presenter, dates, venue).
  */
-function loadEventForAdmin(adminID) {
-  return userServices.checkWhetherUserIsAdmin(adminID)
-    .then(isAdmin => {
-      if (!isAdmin) return [false, 'noadmin'];
+function updateEvent(eventID, eventDataNew) {
+  const updateFields = {};
 
-      return Event.find({}).lean()
-        .then(events => {
-          if (!events || events.length === 0) return [true, []];
+  if (eventDataNew.event_id !== undefined) updateFields.event_id = eventDataNew.event_id;
+  if (eventDataNew.title !== undefined) updateFields.title = eventDataNew.title;
+  if (eventDataNew.description !== undefined) updateFields.description = eventDataNew.description;
+  if (eventDataNew.presenter !== undefined) updateFields.presenter = eventDataNew.presenter;
+  if (eventDataNew.dates !== undefined || eventDataNew.date !== undefined) {
+    updateFields.dates = eventDataNew.dates || eventDataNew.date || [];
+  }
 
-          const venueIdSet = new Set(events.map(ev => String(ev.venue)));
-          const venueObjectIds = Array.from(venueIdSet);
+  const venueIdNew = eventDataNew.venue;
 
-          return Venue.find({ _id: { $in: venueObjectIds } }).lean()
-            .then(venues => {
-              const venueMap = new Map(
-                venues.map(v => [
-                  String(v._id),
-                  {
-                    venue_id: v.venue_id,
-                    name: v.name,
-                    latitude: v.latitude,
-                    longitude: v.longitude,
-                    area: v.area
-                  }
-                ])
-              );
+  if (!venueIdNew) {
+    return Event.findOneAndUpdate(
+      { _id: eventID },
+      { $set: updateFields },
+      { new: true }
+    ).then(change => {
+      if (change) return [true, cleanEventResponse(change)];
+      return [false, 'Event not found.'];
+    })
+      .catch(err => {
+        console.error(err);
+        return [false, 'Error updating event'];
+      });
+  }
 
-              const nestedEvents = events.map(ev => {
-                const vInfo = venueMap.get(String(ev.venue)) || null;
-                return {
-                  _id: ev._id,
-                  event_id: ev.event_id,
-                  title: ev.title,
-                  description: ev.description,
-                  presenter: ev.presenter,
-                  venue: vInfo,
-                  dates_compact: (ev.dates || []).map(formatDate)
-                };
-              });
+  return Venue.findOne({ _id: venueIdNew }).lean()
+    .then(venueExist => {
+      if (!venueExist) return [false, 'Cannot find venue.'];
 
-              return [true, nestedEvents];
-            });
+      updateFields.venue = venueExist._id;
+
+      return Event.findOneAndUpdate(
+        { _id: eventID },
+        { $set: updateFields },
+        { new: true }
+      ).then(change => {
+        if (change) return [true, cleanEventResponse(change)];
+        return [false, 'Event not found.'];
+      })
+        .catch(err => {
+          console.error(err);
+          return [false, 'Error updating event'];
         });
     })
-    .catch(err => [false, err.message]);
+    .catch(err => {
+      console.error(err);
+      return [false, 'Error updating event'];
+    });
 }
+
 
 /**
- * Create a new event. Requires admin privileges. Validates venue existence, accepts dates as Date objects or YYYYMMDD strings.
- * Atomically increments associated venue's eventCount. Accepts venue_id flat or nested in eventData.
+ * Delete an event by ObjectId.
  */
-function insertEvent(adminID, eventData) {
-  return userServices.checkWhetherUserIsAdmin(adminID)
-    .then(isAdmin => {
-      if (!isAdmin) return [false, 'noadmin'];
-
-      const venueId = eventData.venue_id || (eventData.venue && eventData.venue.venue_id);
-
-      return Venue.findOne({ venue_id: venueId }).lean()
-        .then(exist => {
-          if (!exist) return [false, 'nofind'];
-
-          const dates = eventData.dates || [];
-          const parsedDates = dates
-            .map(d => {
-              if (d instanceof Date) return d;
-              if (typeof d === 'string' && d.length === 8) return parseDate(d);
-              return null;
-            })
-            .filter(d => d !== null);
-
-          return new Event({
-            event_id: eventData.event_id,
-            title: eventData.title,
-            description: eventData.description,
-            presenter: eventData.presenter,
-            venue: exist._id,
-            dates: parsedDates
-          }).save()
-            .then(eventInsert => [true, eventInsert]);
-        });
+function deleteEvent(eventID) {
+  return Event.findOneAndDelete({ _id: eventID })
+    .then(deleted => {
+      if (deleted) return [true, deleted._id];
+      return [false, 'Event not found.'];
     })
-    .catch(err => [false, err.message]);
+    .catch(err => {
+      console.error(err);
+      return [false, 'Error deleting event'];
+    });
 }
-
-/**
- * Delete an event by event_id. Requires admin privileges. Atomically decrements associated venue's eventCount
- * when event is removed from database.
- */
-function deleteEvent(adminID, eventID) {
-  return userServices.checkWhetherUserIsAdmin(adminID)
-    .then(isAdmin => {
-      if (!isAdmin) return [false, 'noadmin'];
-
-      return Event.findOneAndDelete({ event_id: eventID })
-        .then(deleted => {
-          if (deleted) return [true, eventID];
-          return [false, 'nodelete'];
-        });
-    })
-    .catch(err => [false, err.message]);
-}
-
-/**
- * Update event fields (event_id, title, description, presenter, dates, venue). Requires admin privileges.
- * Handles venue reassignment by validating new venue exists. Accepts venue_id flat or nested, dates as Date objects or YYYYMMDD strings.
- */
-function updateEvent(adminID, eventID, eventDataNew) {
-  return userServices.checkWhetherUserIsAdmin(adminID)
-    .then(isAdmin => {
-      if (!isAdmin) return [false, 'noadmin'];
-
-      const updateFields = {};
-
-      if (eventDataNew.event_id !== undefined) updateFields.event_id = eventDataNew.event_id;
-      if (eventDataNew.title !== undefined) updateFields.title = eventDataNew.title;
-      if (eventDataNew.description !== undefined) updateFields.description = eventDataNew.description;
-      if (eventDataNew.presenter !== undefined) updateFields.presenter = eventDataNew.presenter;
-
-      if (eventDataNew.dates !== undefined || eventDataNew.date !== undefined) {
-        const src = eventDataNew.dates || eventDataNew.date || [];
-        updateFields.dates = src
-          .map(d => {
-            if (d instanceof Date) return d;
-            if (typeof d === 'string' && d.length === 8) return parseDate(d);
-            return null;
-          })
-          .filter(d => d !== null);
-      }
-
-      const venueIdNew = eventDataNew.venue_id || (eventDataNew.venue && eventDataNew.venue.venue_id);
-
-      if (!venueIdNew) {
-        return Event.findOneAndUpdate(
-          { event_id: eventID },
-          { $set: updateFields },
-          { new: true }
-        ).then(change => {
-          if (change) return [true, change];
-          return [false, 'noupdate'];
-        });
-      }
-
-      return Venue.findOne({ venue_id: venueIdNew }).lean()
-        .then(venueExist => {
-          if (!venueExist) return [false, 'nofind'];
-
-          updateFields.venue = venueExist._id;
-
-          return Event.findOneAndUpdate(
-            { event_id: eventID },
-            { $set: updateFields },
-            { new: true }
-          ).then(change => {
-            if (change) return [true, change];
-            return [false, 'noupdate'];
-          });
-        });
-    })
-    .catch(err => [false, err.message]);
-}
-
-module.exports = { parseDate, formatDate, loadEventForAdmin, insertEvent, deleteEvent, updateEvent };
+module.exports = { loadEventForAdmin, insertEvent, deleteEvent, updateEvent, cleanEventResponse };

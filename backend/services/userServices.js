@@ -1,6 +1,25 @@
 const User = require('../models/User');
 const Venue = require('../models/Venue');
 
+
+/**
+ * Get all users as UserView objects (hide passwords, favorites). Returns array.
+ */
+function loadAllUsers() {
+  return User.find({}, {
+    username: 1,
+    isAdmin: 1,
+    _id: 1
+  }).lean()
+    .then(users => {
+      return [true, users];
+    })
+    .catch(err => {
+      console.error(err);
+      return [false, "Error loading users"];
+    })
+}
+
 /**
  * Create a new user. Checks if username is unique, creates user document with provided
  * credentials and empty favorites list, then returns user details.
@@ -8,7 +27,7 @@ const Venue = require('../models/Venue');
 function addNewUser(userData) {
   return checkWhetherUsernameAvailable(userData.username)
     .then(exists => {
-      if (!exists) return [false, 'noduplicates'];
+      if (!exists) return [false, 'No duplicate usernames.'];
 
       return new User({
         username: userData.username,
@@ -18,14 +37,17 @@ function addNewUser(userData) {
       }).save()
         .then(userCreation => {
           const userDetails = {
+            _id: userCreation._id,
             username: userCreation.username,
             isAdmin: userCreation.isAdmin,
-            userID: userCreation._id
           };
           return [true, userDetails];
         });
     })
-    .catch(err => [false, err.message]);
+    .catch(err => {
+      console.error(err);
+      return [false, "Error inserting user"];
+    })
 }
 
 /**
@@ -34,67 +56,65 @@ function addNewUser(userData) {
 function checkAndLoadUser(userInput) {
   return User.findOne({ username: userInput.username }).lean()
     .then(user => {
-      if (!user) return [false, 'nofind'];
+      if (!user) return [false, 'nofind.'];
       if (user.password != userInput.password) return [false, 'nopass'];
 
       const userDetails = {
+        _id: user._id,
         username: user.username,
         isAdmin: user.isAdmin,
-        userID: user._id
       };
       return [true, userDetails];
     })
-    .catch(err => [false, err.message]);
+    .catch(err => {
+      console.error(err);
+      [false, "Error checking user"];
+    })
 }
 
 /**
- * Delete a user by ID. Requires admin privileges. Returns deleted user ID.
+ * Delete a user by ID. Middleware guarantees admin access.
  */
-function deleteUser(adminID, userID) {
-  return checkWhetherUserIsAdmin(adminID)
-    .then(isAdmin => {
-      if (!isAdmin) return [false, 'noadmin'];
-
-      return User.findOneAndDelete({ _id: userID })
-        .then(deleted => {
-          if (deleted) return [true, userID];
-          return [false, 'nodelete'];
-        });
+function deleteUser(userID) {
+  return User.findOneAndDelete({ _id: userID })
+    .then(deleted => {
+      if (deleted) return [true, userID];
+      return [false, 'Fail to delete user.'];
     })
-    .catch(err => [false, err.message]);
+    .catch(err => {
+      console.error(err);
+      return [false, "Error deleting user"];
+    })
 }
 
 /**
- * Update user fields (username, password, isAdmin). Requires admin privileges.
- * Only updates provided fields; returns updated user details.
+ * Update user fields (username, password, isAdmin). Middleware guarantees admin access.
  */
-function updateUser(adminID, userID, newUserData) {
-  return checkWhetherUserIsAdmin(adminID)
-    .then(isAdmin => {
-      if (!isAdmin) return [false, 'noadmin'];
+function updateUser(userID, newUserData) {
+  const updateFields = {};
+  if (newUserData.username !== undefined) updateFields.username = newUserData.username;
+  if (newUserData.password !== undefined) updateFields.password = newUserData.password;
+  if (newUserData.isAdmin !== undefined) updateFields.isAdmin = newUserData.isAdmin;
 
-      const updateFields = {};
-      if (newUserData.username !== undefined) updateFields.username = newUserData.username;
-      if (newUserData.password !== undefined) updateFields.password = newUserData.password;
-      if (newUserData.isAdmin !== undefined) updateFields.isAdmin = newUserData.isAdmin;
-
-      return User.findOneAndUpdate(
-        { _id: userID },
-        { $set: updateFields },
-        { new: true }
-      ).then(change => {
-        if (change) {
-          const userDetails = {
-            username: change.username,
-            isAdmin: change.isAdmin,
-            userID: change._id
-          };
-          return [true, userDetails];
-        }
-        return [false, 'noupdate'];
-      });
+  return User.findOneAndUpdate(
+    { _id: userID },
+    { $set: updateFields },
+    { new: true }
+  ).then(change => {
+    if (change) {
+      const userDetails = {
+        _id: change._id,
+        username: change.username,
+        isAdmin: change.isAdmin,
+      };
+      return [true, userDetails];
+    }
+    return [false, 'Fail to update user.'];
+  })
+    .catch(err => {
+      console.error(err);
+      return [false, "Error updating user"];
     })
-    .catch(err => [false, err.message]);
 }
 
 /**
@@ -144,10 +164,14 @@ function favoriteLocation(userID, venueID, willFavorite) {
           return [false, 'noupdate'];
         });
     })
-    .catch(err => [false, err.message]);
+    .catch(err => {
+      console.error(err);
+      return [false, "Error updating user"];
+    })
 }
 
 module.exports = {
+  loadAllUsers,
   addNewUser,
   checkAndLoadUser,
   deleteUser,

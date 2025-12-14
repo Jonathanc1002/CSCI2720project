@@ -11,7 +11,7 @@ function parseVenues(venuesXML) {
       name: v.venuee || v.venuec || "Unknown",
       latitude: Number(v.latitude),
       longitude: Number(v.longitude),
-      area: resolveArea(Number(v.latitude), Number(v.longitude))
+      area: resolveArea(v.venuee || v.venuec || "Unknown")
     }));
 }
 

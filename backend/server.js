@@ -7,6 +7,8 @@ const locationRoutes = require("./routes/locationRoutes")
 const preprocessAll = require("./preprocess/preprocessAll");
 const commentRoutes = require("./routes/commentRoutes");
 const favoriteRoutes = require("./routes/favoriteRoutes");
+const adminUserRoutes = require("./routes/adminUserRoutes"); 
+const adminEventRoutes = require("./routes/adminEventRoutes"); 
 
 const { connectDB } = require('./index');
 
@@ -30,6 +32,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/locations", locationRoutes);
 app.use("/api", commentRoutes);
 app.use("/api/users", favoriteRoutes);
+app.use("/api", adminUserRoutes);  
+app.use("/api", adminEventRoutes); 
 
 // error handler
 app.use((err, req, res, next) => {
