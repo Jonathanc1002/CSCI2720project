@@ -48,7 +48,6 @@ function insertVenue(adminID, venueData) {
       }).save();
     })
     .then(venueInsert => {
-      if (Array.isArray(venueInsert)) return venueInsert;
       return [true, venueInsert];
     })
     .catch(err => [false, err.message]);
@@ -87,7 +86,7 @@ function loadFilteredVenuesFromDB(filterOptions = {}) {
         } else {
           const distanceFilter = getDistanceBounds(CUHK_LAT, CUHK_LNG, filterOptions.distance);
           filteredVenues = filteredVenues.filter(v =>
-            distanceFilter.haversineDistance(parseFloat(v.latitude), parseFloat(v.longitude)) <= distanceFilter.radiusKm
+            distanceFilter.haversineDistance(Number(v.latitude), Number(v.longitude)) <= distanceFilter.radiusKm
           );
         }
       }
