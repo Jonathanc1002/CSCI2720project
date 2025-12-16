@@ -79,7 +79,7 @@ function loadFilteredVenuesFromDB(filterOptions = {}) {
       }
 
       // 3. Distance filter 
-      if (filterOptions.distance !== undefined) {
+      if (filterOptions.distance) {
         if (filterOptions.distance === 0) {
           // Approach 1: show all venues, distance filter is rejected
           // Approach 2: don't show anything -> filteredVenues = [];
@@ -93,11 +93,12 @@ function loadFilteredVenuesFromDB(filterOptions = {}) {
 
       const result = filteredVenues.map(v => ({
         _id: v._id,
+        venue_id: v.venue_id,
         name: v.name,
         latitude: v.latitude,
         longitude: v.longitude,
         area: v.area,
-        eventsCount: v.eventCount || 0
+        eventsCount: v.eventCount ?? 0
       }));
 
       return [true, result];

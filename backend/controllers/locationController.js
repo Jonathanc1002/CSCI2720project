@@ -1,6 +1,10 @@
 // backend/controllers/locationController.js
 
 const Venue = require("../models/Venue");
+const {
+  loadFilteredVenuesFromDB,
+  loadVenue
+} = require("../services/venueServices");
 
 /**
  * GET /api/locations
@@ -8,24 +12,31 @@ const Venue = require("../models/Venue");
  */
 const getAllLocations = async (req, res) => {
   try {
-    const venues = await Venue.find({}).lean();
+    const filterOptions = {
 
-    const response = venues.map(v => ({
-      _id: v._id,
-      venue_id: v.venue_id,
-      name: v.name,
-      latitude: v.latitude,
-      longitude: v.longitude,
-      area: v.area,
-      eventsCount: v.eventCount ?? 0
-    }));
+      // Filters (optional)
+      area: req.query.area,
+      keyword: req.query.keyword,
+      distance:
+        req.query.distance !== undefined
+          ? Number(req.query.distance)
+          : undefined,
+    };
 
-    return res.status(200).json(response);
+    const [ok, data] = await loadFilteredVenuesFromDB(filterOptions);
 
+    if (!ok) {
+      console.error('loadFilteredVenuesFromDB error:', data);
+      return res.status(500).json({
+        message: 'Failed to load locations',
+      });
+    }
+
+    return res.status(200).json(data);
   } catch (err) {
-    console.error("getAllLocations error:", err);
+    console.error('getAllLocations error:', err);
     return res.status(500).json({
-      message: "Failed to load locations"
+      message: 'Failed to load locations',
     });
   }
 };
@@ -38,28 +49,26 @@ const getLocationById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const venue = await Venue.findById(id).lean();
+    const [ok, result] = await loadVenue(id);
 
-    if (!venue) {
-      return res.status(404).json({
-        message: "Location not found"
+    if (!ok) {
+      if (result === 'nofind') {
+        return res.status(404).json({
+          message: 'Location not found',
+        });
+      }
+
+      console.error('loadVenue error:', result);
+      return res.status(500).json({
+        message: 'Failed to load location',
       });
     }
 
-    return res.status(200).json({
-      _id: venue._id,
-      venue_id: venue.venue_id,
-      name: venue.name,
-      latitude: venue.latitude,
-      longitude: venue.longitude,
-      area: venue.area,
-      eventsCount: venue.eventCount ?? 0
-    });
-
+    return res.status(200).json(result);
   } catch (err) {
-    console.error("getLocationById error:", err);
+    console.error('getLocationById error:', err);
     return res.status(500).json({
-      message: "Failed to load location"
+      message: 'Failed to load location',
     });
   }
 };
