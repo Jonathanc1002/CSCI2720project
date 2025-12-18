@@ -57,6 +57,13 @@ body {
   color: var(--text-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
   position: relative;
+  min-height: 100vh;
+}
+
+#root {
+  position: relative;
+  z-index: 10;
+  min-height: 100vh;
 }
 
 h1, h4, h5, h6 {
@@ -84,7 +91,7 @@ h1, h4, h5, h6 {
     linear-gradient(90deg, var(--tron-grid-color) 1px, transparent 1px);
   background-size: 50px 50px;
   pointer-events: none;
-  z-index: 1;
+  z-index: -2;
   opacity: 0.8;
 }
 
@@ -100,7 +107,7 @@ h1, h4, h5, h6 {
     linear-gradient(90deg, var(--tron-grid-color) 2px, transparent 2px);
   background-size: 200px 200px;
   pointer-events: none;
-  z-index: 0;
+  z-index: -1;
   opacity: 0.4;
 }
 

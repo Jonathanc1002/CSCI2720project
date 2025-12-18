@@ -5,6 +5,7 @@ require('dotenv').config();
 const authRoutes = require("./routes/authRoutes");
 const locationRoutes = require("./routes/locationRoutes")
 const preprocessAll = require("./preprocess/preprocessAll");
+const seedUsers = require("./preprocess/seedUsers");
 const commentRoutes = require("./routes/commentRoutes");
 const favoriteRoutes = require("./routes/favoriteRoutes");
 const adminUserRoutes = require("./routes/adminUserRoutes"); 
@@ -43,6 +44,10 @@ app.use((err, req, res, next) => {
 
 const startServer =  async () => {
   try {
+    // Seed demo users first
+    console.log("Seeding demo users...");
+    await seedUsers();
+    
     // 🔹 fetch → preprocess → DB insert
     console.log("Running preprocess pipeline...");
     await preprocessAll();
@@ -59,8 +64,3 @@ const startServer =  async () => {
 };
 
 startServer();
-
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
