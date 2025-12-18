@@ -17,7 +17,6 @@ function MapView() {
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedLocation, setSelectedLocation] = useState(null);
   const mapRef = useRef(null);
   const leafletMapRef = useRef(null);
   const markersRef = useRef([]);
@@ -40,9 +39,6 @@ function MapView() {
       setError(null);
       const data = await getAllLocations({});
       setLocations(data);
-      if (data.length > 0) {
-        setSelectedLocation(data[0]);
-      }
     } catch (err) {
       console.error('Failed to fetch locations:', err);
       setError('Failed to load locations. Please try again later.');
@@ -176,11 +172,6 @@ function MapView() {
       marker.originalLatLng = L.latLng(position);
       marker.locationId = location._id;
       marker.index = index;
-
-      // Handle marker click
-      marker.on('click', () => {
-        setSelectedLocation(location);
-      });
 
       // Add click handler for the button after popup opens
       marker.on('popupopen', () => {
@@ -317,26 +308,6 @@ function MapView() {
         if (markersRef.current.length > 0) {
           markersRef.current[0].openPopup();
         }
-      }, 500);
-    }
-  };
-
-  const handleLocationClick = (location) => {
-    setSelectedLocation(location);
-    
-    // Find corresponding marker
-    const marker = markersRef.current.find(m => m.locationId === location._id);
-    if (marker && leafletMapRef.current) {
-      // Pan to marker with animation
-      const position = [parseFloat(location.latitude), parseFloat(location.longitude)];
-      leafletMapRef.current.setView(position, 13, {
-        animate: true,
-        duration: 1
-      });
-      
-      // Open popup
-      setTimeout(() => {
-        marker.openPopup();
       }, 500);
     }
   };
