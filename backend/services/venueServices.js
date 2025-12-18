@@ -1,4 +1,7 @@
 const Venue = require('../models/Venue');
+const Event = require('../models/Event');
+const Comment = require('../models/Comment');
+const User = require('../models/User');
 const userServices = require('./userServices');
 
 /**
@@ -8,26 +11,60 @@ const CUHK_LAT = 22.4172;
 const CUHK_LNG = 114.2079;
 
 /**
- * Load venue based on ._id
+ * Load venue based on ._id with events and comments
  */
-function loadVenue(venueObjectId) {
-  return Venue.findOne({ _id: venueObjectId }).lean()
-    .then(venue => {
-      if (!venue) return [false, 'nofind'];
+async function loadVenue(venueObjectId) {
+  try {
+    const venue = await Venue.findOne({ _id: venueObjectId }).lean();
+    if (!venue) return [false, 'nofind'];
 
-      const result = {
-        _id: venue._id,
-        venue_id: venue.venue_id,
-        name: venue.name,
-        latitude: venue.latitude,
-        longitude: venue.longitude,
-        area: venue.area,
-        eventsCount: venue.eventCount ?? 0
-      };
+    // Fetch events for this venue
+    const events = await Event.find({ venue: venueObjectId }).lean();
 
-      return [true, result];
-    })
-    .catch(err => [false, err.message]);
+    // Fetch comments for this venue with user details
+    const comments = await Comment.find({ venue: venueObjectId })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Get user details for comments
+    const commentsWithUsernames = await Promise.all(
+      comments.map(async (comment) => {
+        const user = await User.findById(comment.user_id).lean();
+        return {
+          _id: comment._id,
+          text: comment.comment,
+          username: user ? user.username : 'Unknown',
+          createdAt: comment.createdAt
+        };
+      })
+    );
+
+    // Format events
+    const formattedEvents = events.map(event => ({
+      _id: event._id,
+      title: event.title,
+      dateTime: event.dates,
+      presenter: event.presenter,
+      description: event.description,
+      dates: event.dates
+    }));
+
+    const result = {
+      _id: venue._id,
+      venue_id: venue.venue_id,
+      name: venue.name,
+      latitude: venue.latitude,
+      longitude: venue.longitude,
+      area: venue.area,
+      eventsCount: venue.eventCount ?? 0,
+      events: formattedEvents,
+      comments: commentsWithUsernames
+    };
+
+    return [true, result];
+  } catch (err) {
+    return [false, err.message];
+  }
 }
 
 /**
