@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Venue = require('../models/Venue');
+const bcrypt = require('bcryptjs');
 
 
 /**
@@ -53,23 +54,27 @@ function addNewUser(userData) {
 /**
  * Authenticate a user by username and password. Returns user details on match.
  */
-function checkAndLoadUser(userInput) {
-  return User.findOne({ username: userInput.username }).lean()
-    .then(user => {
-      if (!user) return [false, 'nofind.'];
-      if (user.password != userInput.password) return [false, 'nopass'];
+async function checkAndLoadUser(userInput) {
+  try {
+    const user = await User.findOne({ username: userInput.username }).lean();
+    
+    if (!user) return [false, 'nofind'];
+    
+    // Compare password using bcrypt
+    const isPasswordValid = await bcrypt.compare(userInput.password, user.password);
+    if (!isPasswordValid) return [false, 'nopass'];
 
-      const userDetails = {
-        _id: user._id,
-        username: user.username,
-        isAdmin: user.isAdmin,
-      };
-      return [true, userDetails];
-    })
-    .catch(err => {
-      console.error(err);
-      [false, "Error checking user"];
-    })
+    const userDetails = {
+      _id: user._id,
+      userID: user._id, // Add userID for backward compatibility
+      username: user.username,
+      isAdmin: user.isAdmin,
+    };
+    return [true, userDetails];
+  } catch (err) {
+    console.error('checkAndLoadUser error:', err);
+    return [false, "Error checking user"];
+  }
 }
 
 /**

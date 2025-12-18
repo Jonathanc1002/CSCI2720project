@@ -4,16 +4,20 @@ const Venue = require("../models/Venue");
 
 /**
  * GET /api/users/me/favorites
- * body: { userId }
+ * query: ?userId=xxx or body: { userId }
  */
 exports.getMyFavorites = async (req, res) => {
   try {
-    const { userId } = req.body;
+    console.log('getMyFavorites called', { query: req.query, body: req.body });
+    // Accept userId from query params or body (body might be undefined for GET)
+    const userId = req.query.userId || (req.body && req.body.userId);
+    console.log('userId:', userId);
     if (!userId) {
       return res.status(400).json({ message: "userId is required" });
     }
 
     const user = await User.findById(userId);
+    console.log('user found:', user ? user.username : 'null');
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }

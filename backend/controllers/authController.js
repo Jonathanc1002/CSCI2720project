@@ -23,9 +23,11 @@ exports.login = async (req, res) => {
     }
 
     return res.status(200).json({
-      userId: result.userID,   // service 기준 매핑
-      username,
-      isAdmin: result.isAdmin
+      user: {
+        _id: result._id || result.userID,
+        username: result.username,
+        isAdmin: result.isAdmin
+      }
     });
 
   } catch (err) {
