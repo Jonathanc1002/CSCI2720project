@@ -37,6 +37,11 @@
   font-weight: 600;
 }
 
+:root[data-theme="dark"] .tab-btn.active {
+  color: #5ff5ff;
+  border-bottom-color: #5ff5ff;
+}
+
 .admin-section {
   background: white;
   border-radius: 8px;
@@ -76,6 +81,10 @@
   padding: 12px;
   text-align: left;
   border-bottom: 1px solid #e0e0e0;
+}
+
+.admin-table td {
+  color: #282c34 !important;
 }
 
 .admin-table th {

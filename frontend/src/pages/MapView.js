@@ -191,7 +191,7 @@ function MapView() {
     const findOverlappingMarkers = (hoveredMarker) => {
       const overlapping = [];
       const hoveredPos = map.latLngToContainerPoint(hoveredMarker.getLatLng());
-      const threshold = 50; // pixels
+      const threshold = 150; // pixels - larger vicinity area
 
       markersRef.current.forEach(marker => {
         if (marker !== hoveredMarker) {
@@ -216,17 +216,19 @@ function MapView() {
 
       const allMarkers = [hoveredMarker, ...overlapping];
       const center = hoveredMarker.originalLatLng;
-      const spreadDistance = 0.002; // degrees (approximately 200 meters)
+      const spreadDistancePixels = 27; // pixels - constant visual distance regardless of zoom
 
       allMarkers.forEach((marker, idx) => {
         const angle = (idx / allMarkers.length) * 2 * Math.PI;
-        const offsetLat = Math.sin(angle) * spreadDistance;
-        const offsetLng = Math.cos(angle) * spreadDistance;
         
-        const newPos = L.latLng(
-          center.lat + offsetLat,
-          center.lng + offsetLng
-        );
+        // Calculate offset in pixels
+        const offsetX = Math.cos(angle) * spreadDistancePixels;
+        const offsetY = Math.sin(angle) * spreadDistancePixels;
+        
+        // Convert pixel offset to lat/lng based on current zoom
+        const centerPoint = map.latLngToContainerPoint(center);
+        const newPoint = L.point(centerPoint.x + offsetX, centerPoint.y + offsetY);
+        const newPos = map.containerPointToLatLng(newPoint);
 
         marker.setLatLng(newPos);
         marker._icon.style.transition = 'all 0.3s ease-out';
@@ -276,7 +278,7 @@ function MapView() {
                         });
                       }
                       
-                      // If not hovering over any cluster marker, reset
+                      // If not hovering over any cluster marker, reset immediately
                       if (!stillHovering && spreadCluster) {
                         resetMarkers(spreadCluster);
                         spreadCluster = null;
