@@ -30,7 +30,7 @@
   --bg-secondary: #1a1a1a;
   --text-primary: #e0e0e0;
   --text-secondary: #b0b0b0;
-  --heading-color: #00d9ff;
+  --heading-color: #5ff5ff;
   --border-color: #404040;
   --shadow: rgba(0, 0, 0, 0.3);
   --shadow-hover: rgba(0, 0, 0, 0.4);
@@ -44,7 +44,7 @@
   --navbar-bg: #1a1a1a;
   --navbar-text: #e0e0e0;
   --card-bg: #1a1a1a;
-  --tron-grid-color: rgba(0, 217, 255, 0.5);
+  --tron-grid-color: rgba(95, 245, 255, 0.5);
 }
 
 body {
@@ -59,17 +59,16 @@ body {
   position: relative;
 }
 
-h1, h2, h4, h5, h6 {
+h1, h4, h5, h6 {
   color: var(--heading-color) !important;
   transition: color 0.3s ease;
 }
 
 :root[data-theme="dark"] h1,
-:root[data-theme="dark"] h2,
 :root[data-theme="dark"] h4,
 :root[data-theme="dark"] h5,
 :root[data-theme="dark"] h6 {
-  color: #00d9ff !important;
+  color: #5ff5ff !important;
 }
 
 /* Tron grid background for dark mode */
