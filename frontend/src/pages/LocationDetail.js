@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getLocationById } from '../services/locationService';
-import { addFavorite, removeFavorite, checkIsFavorite } from '../services/favoriteService';
-import { addComment } from '../services/commentService';
+import { getLocationById } from '../api/locations';
+import { addFavorite, removeFavorite, checkIsFavorite } from '../api/favorites';
+import { addComment } from '../api/comments';
 import { useAuth } from '../context/AuthContext';
 import './LocationDetail.css';
 

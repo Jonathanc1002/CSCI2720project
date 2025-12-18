@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllLocations } from '../services/locationService';
+import { getLocations } from '../api/locations';
 import './MapView.css';
 
 function MapView() {
@@ -17,7 +17,8 @@ function MapView() {
     try {
       setLoading(true);
       setError(null);
-      const data = await getAllLocations({});
+      const response = await getLocations({});
+      const data = response.data;
       setLocations(data);
       if (data.length > 0) {
         setSelectedLocation(data[0]); // Select first location by default

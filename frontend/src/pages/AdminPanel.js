@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
-  getAllUsers, createUser, updateUser, deleteUser,
-  getAllEventsAdmin, createEvent, updateEvent, deleteEvent 
-} from '../services/adminService';
-import { getAllLocations } from '../services/locationService';
+  getAllUsers, createUser, updateUser, deleteUser
+} from '../api/adminUsers';
+import { 
+  getAllEvents, createEvent, updateEvent, deleteEvent 
+} from '../api/adminEvents';
+import { getLocations } from '../api/locations';
 import './AdminPanel.css';
 
 function AdminPanel() {
@@ -48,14 +50,14 @@ function AdminPanel() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [usersData, eventsData, locationsData] = await Promise.all([
+      const [usersData, eventsData, locationsResponse] = await Promise.all([
         getAllUsers(),
-        getAllEventsAdmin(),
-        getAllLocations()
+        getAllEvents(),
+        getLocations()
       ]);
       setUsers(usersData);
       setEvents(eventsData);
-      setLocations(locationsData);
+      setLocations(locationsResponse.data);
     } catch (error) {
       console.error('Error fetching admin data:', error);
       alert('Failed to load data. Please try again.');

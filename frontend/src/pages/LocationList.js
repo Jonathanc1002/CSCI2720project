@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllLocations } from '../services/locationService';
+import { getLocations } from '../api/locations';
 import './LocationList.css';
 
 function LocationList() {
@@ -31,7 +31,8 @@ function LocationList() {
     try {
       setLoading(true);
       setError(null);
-      const data = await getAllLocations(filters);
+      const response = await getLocations(filters);
+      const data = response.data;
       setLocations(data);
     } catch (err) {
       console.error('Failed to fetch locations:', err);

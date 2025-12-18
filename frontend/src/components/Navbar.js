@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { logout as logoutAPI } from '../services/authService';
+import { logout as logoutAPI } from '../api/auth';
 import './Navbar.css';
 
 function Navbar() {
