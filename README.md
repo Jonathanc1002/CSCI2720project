@@ -6,22 +6,95 @@ A full-stack web application built with React frontend and Express/MongoDB backe
 
 ```
 CSCI2720project/
-├── backend/              # Express.js backend
-│   ├── config/          # Configuration files (database, etc.)
-│   ├── controllers/     # Route controllers
-│   ├── models/          # Database models
-│   ├── routes/          # API routes
-│   ├── server.js        # Entry point
+├── backend/                      # Express.js backend
+│   ├── config/
+│   │   └── db.js                # MongoDB connection configuration
+│   ├── controllers/             # Request handlers
+│   │   ├── adminEventController.js
+│   │   ├── adminUserController.js
+│   │   ├── authController.js
+│   │   ├── commentController.js
+│   │   ├── favoriteController.js
+│   │   ├── locationController.js
+│   │   └── userController.js
+│   ├── middleware/              # Custom middleware
+│   │   ├── adminOnlyMiddleware.js
+│   │   └── demoAuthMiddleware.js
+│   ├── models/                  # Mongoose schemas
+│   │   ├── Comment.js
+│   │   ├── Event.js
+│   │   ├── User.js
+│   │   └── Venue.js
+│   ├── preprocess/              # Data fetching and seeding
+│   │   ├── fetch/
+│   │   │   ├── fetchXML.js
+│   │   │   └── xmlParser.js
+│   │   ├── areaMapping.js
+│   │   ├── parseEventDates.js
+│   │   ├── parseEvents.js
+│   │   ├── parseVenues.js
+│   │   ├── preprocessAll.js
+│   │   └── seedUsers.js
+│   ├── routes/                  # API route definitions
+│   │   ├── adminEventRoutes.js
+│   │   ├── adminUserRoutes.js
+│   │   ├── authRoutes.js
+│   │   ├── commentRoutes.js
+│   │   ├── eventRoutes.js
+│   │   ├── favoriteRoutes.js
+│   │   ├── locationRoutes.js
+│   │   └── userRoutes.js
+│   ├── scripts/
+│   │   └── seedUsers.js
+│   ├── services/                # Business logic layer
+│   │   ├── commentServices.js
+│   │   ├── eventServices.js
+│   │   ├── userServices.js
+│   │   └── venueServices.js
+│   ├── .env.example
+│   ├── index.js
+│   ├── server.js                # Entry point
 │   └── package.json
-├── frontend/            # React frontend
-│   ├── public/         # Static files
+├── frontend/                    # React frontend
+│   ├── public/
+│   │   └── index.html           # HTML template with Leaflet CSS
 │   ├── src/
-│   │   ├── components/ # Reusable components
-│   │   ├── pages/      # Page components
-│   │   ├── services/   # API services
-│   │   ├── App.js      # Main App component
-│   │   └── index.js    # Entry point
+│   │   ├── components/          # Reusable UI components
+│   │   │   ├── Navbar.js
+│   │   │   ├── Navbar.css
+│   │   │   ├── ThemeToggle.js
+│   │   │   └── ThemeToggle.css
+│   │   ├── context/             # React Context providers
+│   │   │   ├── AuthContext.js
+│   │   │   └── ThemeContext.js
+│   │   ├── pages/               # Page components
+│   │   │   ├── AdminPanel.js
+│   │   │   ├── AdminPanel.css
+│   │   │   ├── Favorites.js
+│   │   │   ├── Favorites.css
+│   │   │   ├── LocationDetail.js
+│   │   │   ├── LocationDetail.css
+│   │   │   ├── LocationList.js
+│   │   │   ├── LocationList.css
+│   │   │   ├── Login.js
+│   │   │   ├── Login.css
+│   │   │   ├── MapView.js       # OpenStreetMap with Leaflet
+│   │   │   └── MapView.css
+│   │   ├── services/            # API service layer
+│   │   │   ├── adminService.js
+│   │   │   ├── api.js
+│   │   │   ├── authService.js
+│   │   │   ├── commentService.js
+│   │   │   ├── eventService.js
+│   │   │   ├── favoriteService.js
+│   │   │   └── locationService.js
+│   │   ├── App.css
+│   │   ├── App.js               # Main App component with routing
+│   │   ├── index.css            # Global styles and theme variables
+│   │   └── index.js             # Entry point
+│   ├── .env.example
 │   └── package.json
+├── .gitignore
 └── README.md
 ```
 
