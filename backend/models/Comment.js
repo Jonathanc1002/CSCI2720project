@@ -3,12 +3,12 @@ const mongoose = require("mongoose");
 const CommentSchema = new mongoose.Schema({
   user_id: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "UserEvent",
+    ref: "User",
     required: true
   },
   venue: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "VenueEvent",
+    ref: "Venue",
     required: true
   },
   comment: { type: String, required: true },
