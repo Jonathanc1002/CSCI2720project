@@ -71,11 +71,20 @@ h1, h4, h5, h6 {
   transition: color 0.3s ease;
 }
 
+h2 {
+  color: #808080 !important;
+  transition: color 0.3s ease;
+}
+
 :root[data-theme="dark"] h1,
 :root[data-theme="dark"] h4,
 :root[data-theme="dark"] h5,
 :root[data-theme="dark"] h6 {
   color: #5ff5ff !important;
+}
+
+:root[data-theme="dark"] h2 {
+  color: #a8a8a8 !important;
 }
 
 /* Tron grid background for dark mode */
