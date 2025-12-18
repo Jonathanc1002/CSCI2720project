@@ -2,14 +2,18 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-primary);
+  background-color: transparent;
   transition: background-color 0.3s ease;
+  position: relative;
+  z-index: 2;
 }
 
 .main-content {
   flex: 1;
   padding: 20px;
   min-height: calc(100vh - 60px);
+  position: relative;
+  z-index: 2;
 }
 
 .not-found {
