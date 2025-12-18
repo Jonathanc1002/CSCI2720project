@@ -2,7 +2,9 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import Navbar from './components/Navbar';
+import ThemeToggle from './components/ThemeToggle';
 import Login from './pages/Login';
 import LocationList from './pages/LocationList';
 import LocationDetail from './pages/LocationDetail';
@@ -46,17 +48,20 @@ function AppContent() {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
+      <ThemeToggle />
       </div>
   );
 }
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <AppContent />
-      </Router>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 
